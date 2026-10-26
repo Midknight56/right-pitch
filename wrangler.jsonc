@@ -1,0 +1,24 @@
+{
+  "name": "right-pitch",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  // The second Cloudflare account, the one kept for the hackathon apps (Workers Free plan).
+  "account_id": "9fc5652f61b1f60eb20e1d9a2ef70041",
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*", "/h/*", "/j/*", "/q/*", "/health"] },
+  "ai": { "binding": "AI", "remote": true },
+  // DB is this app's own (the Qloo cache, quizzes, the run cache, host history, reports). LEDGER is shared by the
+  // hackathon apps: every Workers AI call is counted there, so the apps together stay inside the free 10,000 neurons.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "right-pitch", "database_id": "0313ce14-21b6-4140-a316-895a7ec51a7e", "migrations_dir": "migrations" },
+    // remote: even `wrangler dev` counts in the shared ledger, because its model calls spend the same real neurons.
+    { "binding": "LEDGER", "database_name": "hackathon-ledger", "database_id": "023377a8-ad19-413c-b769-d195d05427b3", "remote": true }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "COUNTERS", "class_name": "DailyCounter" },
+      { "name": "ROOMS", "class_name": "Room" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DailyCounter", "Room"] }],
+  "observability": { "enabled": false }
+}
