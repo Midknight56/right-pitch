@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { countdown, createNdjsonSplitter, meterPosition, optionLetter } from '../../public/lib.js'
+import { BUILD_KINDS, countdown, createNdjsonSplitter, meterPosition, optionLetter } from '../../public/lib.js'
+import { ROUND_KINDS } from '../../src/quiz/types'
 
 describe('public helpers', () => {
   it('splits complete NDJSON rows and flushes the final row', () => {
@@ -17,5 +18,12 @@ describe('public helpers', () => {
     expect([optionLetter(0), optionLetter(3)]).toEqual(['A', 'D'])
     expect(countdown(12000, 10001)).toBe(2)
     expect(countdown(9000, 10000)).toBe(0)
+  })
+})
+
+describe('the builder round chips', () => {
+  it('offers exactly the kinds a build accepts: the room round is made by a room, never picked', () => {
+    // A "room" chip in the builder made the build answer "Invalid setup." (found 28 Oct).
+    expect([...BUILD_KINDS].sort()).toEqual([...ROUND_KINDS].sort())
   })
 })

@@ -8,6 +8,7 @@ export function pct(value: unknown): string
 export function describeCall(event: { path: string; params?: Record<string, string>; results: number; ms: number; cached?: boolean }): string
 export function ageWords(list: string): string
 export const KIND_WORDS: Record<string, string>
+export const BUILD_KINDS: string[]
 export const LEVEL_WORDS: Record<string, string>
 export function fieldLabel(field: string): string
 export function meterSpot(value: number): number

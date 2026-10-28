@@ -1,10 +1,10 @@
 // The builder: the host sets up the night, watches the build, checks each answer, then opens the room.
 import { AGES } from './words.js'
 import {
-  KIND_WORDS, LEVEL_WORDS, ageWords, createNdjsonSplitter, describeCall, esc, fieldLabel, meterSpot, optionLetter, pct, store,
+  BUILD_KINDS, KIND_WORDS, LEVEL_WORDS, ageWords, createNdjsonSplitter, describeCall, esc, fieldLabel, meterSpot, optionLetter, pct, store,
 } from './lib.js'
 
-const KINDS = Object.keys(KIND_WORDS)
+const KINDS = BUILD_KINDS
 const TILES = ['bg-a', 'bg-b', 'bg-c', 'bg-d']
 const FALLBACK = { town: '', crowd: ['30_to_34', '35_to_44'], difficulty: 'mixed', rounds: ['film', 'music', 'generation', 'local'] }
 

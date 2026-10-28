@@ -91,6 +91,9 @@ export const KIND_WORDS = {
   music: 'Music', generation: 'Generation game', local: 'Local', room: "The room's round",
 }
 
+/** The round kinds a host can pick in the builder. */
+export const BUILD_KINDS = Object.keys(KIND_WORDS).filter((kind) => kind !== 'room')
+
 export const LEVEL_WORDS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', deep: 'Deep cut' }
 
 // The words for a record's field on the record sheet.
