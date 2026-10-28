@@ -2,6 +2,17 @@
 
 A pub quiz pitched at the room you are in.
 
+> **Judge in 60 seconds** at https://right-pitch.midknight-labs.workers.dev (no login)
+>
+> 1. Tap the first preset, then **Build the quiz**. The build log shows every Qloo call and its signals.
+> 2. Tap the ✓ beside any answer. It opens the Qloo record the answer comes from.
+> 3. Tap **Open the room**. Join from your phone with the QR code, or a second browser tab, with a nickname and a
+>    favourite. Tap **Start**. The last round is built live from your favourite, and its reveal names it.
+>
+> Look at: the difficulty meter on each round, the two age bars in the generation round, and the room's round.
+>
+> New since 30 Sep 2026: all of it. The first line was written on 25 Oct 2026. The room's round was added on 28 Oct.
+
 The host picks the town and who is in the room. Right Pitch builds four rounds from Qloo's taste data, pitched to that
 crowd: easy enough that nobody sits out, hard enough that the room argues. Then the host runs it live. The big screen
 shows a QR code, phones join with a nickname and a favourite, and the scoreboard moves. The last round is built live
