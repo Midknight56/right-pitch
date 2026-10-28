@@ -1,11 +1,14 @@
 import type { PublicQuestion, Quiz, Question } from '../quiz/types'
-import { NICKNAME_MAX, PLAYERS_PER_ROOM, QUESTION_SECONDS, ROOM_HOURS } from '../limits'
+import { FAVOURITE_MAX, NICKNAME_MAX, PLAYERS_PER_ROOM, QUESTION_SECONDS, ROOM_FAVOURITES, ROOM_HOURS } from '../limits'
+import { fitForRoom } from '../quiz/fit'
 
 export type Phase = 'lobby' | 'question' | 'reveal' | 'end'
 export interface Player {
   nick: string
   score: number
   joinedAt: number
+  /** One favourite the player typed at join, for the room's own round. */
+  fav?: string
   last?: { n: number; right: boolean; points: number }
 }
 export interface RoomState {
@@ -19,6 +22,8 @@ export interface RoomState {
   opens: number
   kicked: string[]
   lastReveal?: { n: number; counts: number[] }
+  /** Set once at Start: whether the room's own round replaced the last planned round, and why not. */
+  roomRound?: { built: boolean; why?: string }
 }
 export interface Outgoing {
   to: 'all' | 'host' | 'players' | string
@@ -46,6 +51,7 @@ function send(msg: Record<string, unknown>, to: Outgoing['to'] = 'all'): Outgoin
 export function lobby(state: RoomState, connected?: Set<string>): Outgoing {
   const players = Object.entries(state.players).map(([pid, player]) => ({
     nick: player.nick,
+    fav: Boolean(player.fav),
     ...(connected ? { connected: connected.has(pid) } : {}),
   }))
   return send({ type: 'lobby', players })
@@ -132,7 +138,29 @@ export function snapshot(state: RoomState, pid: string | 'host', now: number): O
   return [send({ type: 'end', top })]
 }
 
-export function join(state: RoomState, pid: string, nick: string, now: number): Result {
+/** A favourite as typed, or nothing: letters, digits and the marks titles use, and no word unfit for the big screen.
+ *  A favourite that does not pass is dropped and the player still joins. */
+function cleanFavourite(text: string): string | undefined {
+  const clean = text.trim().replace(/\s+/g, ' ')
+  if (!new RegExp(`^[\\p{L}\\p{N} .,'&:!?-]{1,${FAVOURITE_MAX}}$`, 'u').test(clean)) return undefined
+  return fitForRoom(clean) ? clean : undefined
+}
+
+/** The favourites the room's round is built from: join order, one per title, at most ROOM_FAVOURITES. */
+export function favourites(state: RoomState): { nick: string; text: string }[] {
+  const seen = new Set<string>()
+  const out: { nick: string; text: string }[] = []
+  for (const player of Object.values(state.players).sort((a, b) => a.joinedAt - b.joinedAt)) {
+    const key = player.fav?.toLocaleLowerCase()
+    if (!player.fav || !key || seen.has(key)) continue
+    seen.add(key)
+    out.push({ nick: player.nick, text: player.fav })
+    if (out.length === ROOM_FAVOURITES) break
+  }
+  return out
+}
+
+export function join(state: RoomState, pid: string, nick: string, now: number, fav = ''): Result {
   if (state.kicked.includes(pid)) return { state, messages: [send({ type: 'error', text: 'You were removed from this room.' }, pid)] }
   if (now >= state.createdAt + ROOM_HOURS * 60 * 60 * 1000) {
     const message = send({ type: 'error', text: 'This room has expired.' }, pid)
@@ -153,7 +181,9 @@ export function join(state: RoomState, pid: string, nick: string, now: number): 
     const ending = ` ${suffix++}`
     unique = `${Array.from(clean).slice(0, NICKNAME_MAX - ending.length).join('').trimEnd()}${ending}`
   }
-  const next = { ...state, players: { ...state.players, [pid]: { nick: unique, score: 0, joinedAt: now } } }
+  const favourite = cleanFavourite(fav)
+  const player: Player = { nick: unique, score: 0, joinedAt: now, ...(favourite ? { fav: favourite } : {}) }
+  const next = { ...state, players: { ...state.players, [pid]: player } }
   return { state: next, messages: [lobby(next)] }
 }
 

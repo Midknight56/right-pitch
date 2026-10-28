@@ -4,7 +4,8 @@ A pub quiz pitched at the room you are in.
 
 The host picks the town and who is in the room. Right Pitch builds four rounds from Qloo's taste data, pitched to that
 crowd: easy enough that nobody sits out, hard enough that the room argues. Then the host runs it live. The big screen
-shows a QR code, phones join with a nickname, and the scoreboard moves.
+shows a QR code, phones join with a nickname and a favourite, and the scoreboard moves. The last round is built live
+from the favourites of the people in the room.
 
 Try it: https://right-pitch.midknight-labs.workers.dev
 
@@ -27,13 +28,27 @@ Try it: https://right-pitch.midknight-labs.workers.dev
 Every answer is a field of a real Qloo record, and the host can tap any question to see it. The difficulty meter on
 each round shows the band and where the round's names really sit.
 
+## The room's round
+
+Each player may type one favourite when they join: a film, a show, a book or a band. When the host presses Start, the
+room asks Qloo what its own taste leans to, with those favourites as the signal (`signal.interests.entities`):
+
+1. One search turns each favourite into a Qloo record, at most 5 favourites a room.
+2. One insights call finds the room's top picks in the last round's type and difficulty band. These are the answers.
+3. One insights call scores the planned round's own 20 names against the same taste. These are the other options.
+4. Each question asks "Which of these fits this room's taste best?" The answer must beat every other option by 0.05 of
+   affinity, and the reveal names whose favourites built it: "From Ann's Jaws, Bo's ABBA and Cy's Dune."
+
+The room's round takes the place of the last planned round. If nobody gave a favourite, a call fails, or fewer than 3
+fair questions come out, the planned round plays. A room makes at most 7 Qloo calls, counted in the same daily 500.
+
 ## Running a night
 
 | Screen | Address | What it does |
 | --- | --- | --- |
 | Builder | `/` | town, crowd, difficulty, four round kinds, up to 3 local names; the build log; the rounds |
 | Host | `/h/CODE` | QR code, lobby, question and timer, answer counts, reveal, scoreboard, the podium |
-| Phone | `/j/CODE` | nickname, four big answer buttons, right or wrong, your score |
+| Phone | `/j/CODE` | nickname and a favourite, four big answer buttons, right or wrong, your score |
 | Print | `/q/ID/print` | a paper copy with an answer sheet |
 
 Each question runs 20 seconds. A right answer scores 1,000 plus up to 500 for speed. A phone or the host screen that
@@ -48,6 +63,7 @@ the arithmetic beside it, and each has a test that fails with its check taken ou
 | --- | --- |
 | Qloo calls a day, the whole app | 500 |
 | Qloo calls in one build | 16, spaced to stay under 10 a second |
+| Qloo calls for one room's round | 7, from the same 500 a day |
 | Fresh builds pause when the shared key's month has fewer calls left than | 3,000 |
 | Fresh builds a visitor a day | 2 |
 | Model use a day | 450 neurons (a measured build uses about 7) |
@@ -55,12 +71,13 @@ the arithmetic beside it, and each has a test that fails with its check taken ou
 | Players in a room | 40 |
 
 The same setup built twice is served from the cache: 0 Qloo calls and 0 model use. When the model budget is spent, a
-build still runs from Qloo with the house titles. Playing a quiz costs no Qloo calls at all.
+build still runs from Qloo with the house titles. Playing a quiz costs Qloo calls only for the room's round.
 
 ## Privacy
 
-No accounts. A player gives a nickname of 1 to 16 letters, digits and spaces. A room keeps only the quiz, the
-nicknames, a random player id and the scores, and it deletes itself 24 hours after it is made. A visitor is counted
+No accounts. A player gives a nickname of 1 to 16 letters, digits and spaces, and may give one favourite of up to 40.
+A room keeps only the quiz, the nicknames, the favourites, a random player id and the scores, and it deletes itself
+24 hours after it is made. The favourites go to Qloo as search words, with nothing that names the player. A visitor is counted
 by a salted hash of their address, for the daily caps only.
 
 No Qloo response data is kept in this repository. The tests use hand written fixtures. Built quizzes live in the

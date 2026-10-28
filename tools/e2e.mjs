@@ -5,8 +5,9 @@
 // With --quiz the host opens a room from that saved quiz; without it the host builds the first preset in the builder.
 // Happy path: build or load, open the room, two phones join by the link, the host starts, one phone answers right
 // and one wrong, the reveal and scores agree, a phone reloads mid game and comes back, the host screen reloads and
-// comes back, every question is played, the end shows on all three.
-// Bad path: a code with no room, a refused nickname, a wrong host token, an answer after the lock.
+// comes back, every question is played, the end shows on all three. Both phones give a favourite, so the last round
+// is the room's own round, built live from Qloo, with both names on its reveal.
+// Bad path: a code with no room, a refused nickname, a refused favourite, a wrong host token, an answer after the lock.
 // Headless, one browser; a picture of every step goes to out/e2e/.
 import { mkdirSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -67,27 +68,59 @@ try {
   step('the host screen shows the code and a QR code', (await text(host, '.join-code')) === code && (await host.locator('.qr-box svg').count()) === 1, code)
   await picture(host, 'lobby-empty')
   const quiz = await host.evaluate(async (id) => (await fetch(`/api/quiz/${id}`)).json(), quizId)
-  const flat = quiz.rounds.flatMap((r) => r.questions)
+  // The room's round takes the place of the last film, telly, books, music or faces round, and plays last.
+  const media = ['film', 'telly', 'books', 'music', 'faces']
+  const made = quiz.rounds.map((r) => r.kind).lastIndexOf(quiz.rounds.map((r) => r.kind).filter((k) => media.includes(k)).at(-1))
+  const flat = quiz.rounds.filter((_, i) => i !== made).flatMap((r) => r.questions)
 
   // Two phones join by the link the QR code holds.
-  const phone = async (nick) => {
+  const phone = async (nick, fav) => {
     const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage()
     watch(page, nick)
     await page.goto(`${BASE}/j/${code}`)
     await page.fill('input[name=nick]', nick)
+    if (fav) await page.fill('input[name=fav]', fav)
     await page.click('button[type=submit]')
     await page.waitForSelector('text=You\'re in')
     return page
   }
-  const ann = await phone('Ann')
-  const bo = await phone('Bo')
+  const ann = await phone('Ann', 'Jaws')
+  const bo = await phone('Bo', 'ABBA')
   await host.waitForFunction(() => document.querySelectorAll('.player').length === 2)
   step('both nicknames show on the host screen', true, (await host.locator('.player').allInnerTexts()).join(', '))
+  step('the host screen counts the favourites', (await text(host, '.fav-line')).startsWith('2 favourites'), await text(host, '.fav-line'))
   await picture(host, 'lobby-two')
 
-  // The game. Ann always answers right, Bo always wrong.
+  // The game. Ann always answers right, Bo always wrong. The room's round is not in the saved quiz (the room builds it
+  // at Start), so there both phones read the question off the screen: Ann taps A, Bo taps B.
   await host.click('[data-go]')
-  for (let n = 0; n < flat.length; n += 1) {
+  await host.waitForSelector('.tiles', { timeout: 30_000 })
+  const of = Number((await text(host, '[data-tag]')).match(/of (\d+)/)?.[1])
+  const planned = flat.length
+  let roomSeen = 0
+  for (let n = 0; n < of; n += 1) {
+    if (n >= planned) {
+      await host.waitForFunction((want) => document.querySelector('[data-tag]')?.textContent?.includes(`, ${want} of`), n + 1, { timeout: 15_000 })
+      const tag = await text(host, '[data-tag]')
+      if (n === planned) step("the last round is the room's round", tag.startsWith("The room's round"), tag)
+      const prompt = await text(host, '.prompt')
+      for (const p of [ann, bo]) await p.waitForFunction((want) => document.querySelector('.q-prompt')?.textContent === want, prompt, { timeout: 15_000 })
+      if (n === planned) {
+        await picture(host, 'room-question')
+        await picture(ann, 'phone-room-question')
+      }
+      await ann.click('[data-choice="0"]')
+      await bo.click('[data-choice="1"]')
+      await host.waitForSelector('.score-list', { timeout: 25_000 })
+      const line = await text(host, '.reveal-line')
+      if (n === planned) {
+        step('the room round reveal names both favourites', line.includes("Ann's") && line.includes("Bo's"), line)
+        await picture(host, 'room-reveal')
+      }
+      roomSeen += 1
+      await host.click('[data-go]')
+      continue
+    }
     const q = flat[n]
     for (const p of [ann, bo]) await p.waitForFunction((want) => document.querySelector('.q-prompt')?.textContent === want, q.prompt, { timeout: 15_000 })
     if (n === 0) step('the question reaches both phones', true, q.prompt)
@@ -121,6 +154,7 @@ try {
     }
     await host.click('[data-go]')
   }
+  step("the room's round played to its end", roomSeen >= 3, `${roomSeen} questions`)
   await host.waitForSelector('.podium')
   step('the end shows the winner on the host screen', (await text(host, '.podium')) === 'Ann')
   await ann.waitForSelector('text=You won')
@@ -142,6 +176,10 @@ try {
   await rude.fill('input[name=nick]', '<script>')
   await rude.click('button[type=submit]')
   step('a nickname with symbols is refused before it is sent', (await text(rude, '[data-status]')).includes('Letters'))
+  await rude.fill('input[name=nick]', 'Cy')
+  await rude.fill('input[name=fav]', '<b>Jaws</b>')
+  await rude.click('button[type=submit]')
+  step('a favourite with symbols is refused before it is sent', (await text(rude, '[data-status]')).includes('simple marks'))
 
   const fake = await (await browser.newContext({ viewport: { width: 1280, height: 720 } })).newPage()
   watch(fake, 'fake host')

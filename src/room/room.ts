@@ -1,10 +1,13 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env } from '../worker'
 import type { Quiz } from '../quiz/types'
-import { ROOM_HOURS } from '../limits'
+import { DAILY_QLOO_CALLS, ROOM_HOURS, ROOM_ROUND_CALLS } from '../limits'
+import { QlooClient } from '../qloo/client'
+import { D1Cache, D1Quota } from '../store/d1'
 import { refuse } from './refuse'
 import { createGame, join, lobby, lock, type Answer, type RoomState, snapshot } from './game'
 import { allowSocketOpen, dispatchRoomMessage, inspectRoomMessage } from './adapter'
+import { startWithRoomRound } from './taste'
 
 type Attachment = {
   role: 'host' | 'player'
@@ -16,6 +19,8 @@ const KEY = 'room'
 
 export class Room extends DurableObject<Env> {
   private state: RoomState | null = null
+  /** The room's round while it is being built, so a second Start waits for the same one. */
+  private building: Promise<RoomState> | null = null
 
   private async load(): Promise<RoomState | null> {
     return this.state ?? (this.state = (await this.ctx.storage.get<RoomState>(KEY)) ?? null)
@@ -55,7 +60,7 @@ export class Room extends DurableObject<Env> {
     const pid = role === 'host' ? 'host' : (url.searchParams.get('pid') ?? '')
     if (!allowSocketOpen(state.opens)) return refuse('This room is full.', 429)
     if (role === 'player') {
-      const result = join(state, pid, url.searchParams.get('nick') ?? '', Date.now())
+      const result = join(state, pid, url.searchParams.get('nick') ?? '', Date.now(), url.searchParams.get('fav') ?? '')
       if (result.messages.some((message) => message.msg.type === 'error')) {
         return refuse(String(result.messages[0].msg.text), 403)
       }
@@ -84,7 +89,7 @@ export class Room extends DurableObject<Env> {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-    const state = await this.load()
+    let state = await this.load()
     const att = ws.deserializeAttachment() as Attachment | null
     if (!state || !att) return
     const inspected = inspectRoomMessage(att, message)
@@ -101,6 +106,11 @@ export class Room extends DurableObject<Env> {
       pid?: string
     } | null
     if (!input) return
+    if (att.role === 'host' && input.type === 'start' && state.phase === 'lobby' && !state.roomRound) {
+      await this.roomRound(state)
+      state = await this.load()
+      if (!state) return
+    }
     const now = Date.now()
     if (att.answer?.n === input.q && att.role === 'player') return
     const result = dispatchRoomMessage(state, att.role, att.pid, input, now)
@@ -178,6 +188,36 @@ export class Room extends DurableObject<Env> {
       ? Math.min(current.endsAt, expiry)
       : expiry
     await this.ctx.storage.setAlarm(nextAlarm)
+  }
+
+  /** Builds the room's own round once, before the first question; the planned round plays if it cannot be built. */
+  private async roomRound(state: RoomState): Promise<RoomState> {
+    this.building ??= (async () => {
+      const ready = await startWithRoomRound(state, this.env.QLOO_API_KEY ? this.qloo() : null)
+      // Players who joined while Qloo answered are kept.
+      const latest = (await this.load()) ?? state
+      const next = { ...latest, quiz: ready.quiz, roomRound: ready.roomRound }
+      await this.save(next)
+      return next
+    })()
+    try {
+      return await this.building
+    } finally {
+      this.building = null
+    }
+  }
+
+  /** A Qloo client for one room's round: cached answers are free; each live call takes one from the Worker's daily
+   *  Qloo count (the builds' own) and at most ROOM_ROUND_CALLS go out for one room. */
+  private qloo(): QlooClient {
+    const day = new Date().toISOString().slice(0, 10)
+    const total = this.env.COUNTERS.get(this.env.COUNTERS.idFromName('qloo-total'))
+    let calls = 0
+    return new QlooClient(this.env.QLOO_API_KEY ?? '', fetch, new D1Cache(this.env.DB), async () => {
+      if (calls >= ROOM_ROUND_CALLS) return false
+      calls++
+      return total.take(day, DAILY_QLOO_CALLS)
+    }, { quota: new D1Quota(this.env.DB) })
   }
 
   private hydrateAnswers(state: RoomState): RoomState {

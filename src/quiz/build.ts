@@ -31,7 +31,7 @@ const BANTER: Record<RoundKind, string> = {
   film: 'Get your popcorn brains on.', telly: 'Sofa knowledge counts.', books: 'Shelf of fame time.', faces: 'Who came first?',
   music: 'Hum it if you have to.', generation: 'Young or old, who leans to it?', local: 'Home advantage.',
 }
-const entityTypes: Record<RoundKind, string> = {
+export const entityTypes: Record<RoundKind, string> = {
   film: 'movie', telly: 'tv_show', books: 'book', faces: 'person', music: 'artist',
   generation: 'movie', local: 'place',
 }
@@ -41,7 +41,7 @@ const roundTemplates: Record<RoundKind, (keyof typeof templates)[]> = {
   local: ['local_hood', 'local_rating'],
 }
 
-function seededRandom(seed: string): () => number {
+export function seededRandom(seed: string): () => number {
   let state = 0
   for (const character of seed) state = (Math.imul(state, 31) + character.charCodeAt(0)) | 0
   return () => {
@@ -252,8 +252,8 @@ export async function buildQuiz(setup: Setup, deps: BuildDeps, send: Sender): Pr
   const names = await modelNames(deps.model ?? null, deps.budget, setup, rounds)
   neurons += names.neurons
   rounds.forEach((round, index) => {
-    round.title = names.names[index]?.title ?? TITLES[round.kind]
-    round.banter = BANTER[round.kind]
+    round.title = names.names[index]?.title ?? TITLES[plans[index].kind]
+    round.banter = BANTER[plans[index].kind]
   })
   const finalMode: BuildMode = planned.by === 'template' || names.by === 'template' ? 'template' : 'live'
   const quiz: Quiz = {

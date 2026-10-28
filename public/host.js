@@ -70,7 +70,11 @@ export async function hostScreen(app, code) {
   })
 
   go.addEventListener('click', () => {
-    if (state.phase === 'lobby') socket.send({ type: 'start' })
+    if (state.phase === 'lobby') {
+      // The room may ask Qloo for its own round first: one press is enough.
+      go.disabled = true
+      socket.send({ type: 'start' })
+    }
     else if (state.phase === 'reveal') socket.send({ type: 'next' })
     else if (state.phase === 'end') location.assign('/')
   })
@@ -126,8 +130,11 @@ export async function hostScreen(app, code) {
   function render() {
     clearInterval(tickTimer)
     const kind = state.phase === 'question' || state.phase === 'reveal' ? state.question?.kind : 'lobby'
-    screen.style.backgroundImage = kind ? `url(/art/${kind}.webp)` : ''
+    // The room's round has no card of its own: it sits on the lobby's.
+    screen.style.backgroundImage = kind ? `url(/art/${kind === 'room' ? 'lobby' : kind}.webp)` : ''
     go.hidden = !['lobby', 'reveal', 'end'].includes(state.phase)
+    // Start turns the button off until the room answers; every later screen turns it on again.
+    go.disabled = false
     // The lobby shows the join link big; the foot repeats it only once the game is on.
     app.querySelector('[data-foot]').hidden = state.phase === 'lobby'
 
@@ -140,12 +147,14 @@ export async function hostScreen(app, code) {
       tag.textContent = `${state.players.length} in`
       go.textContent = 'Start'
       go.disabled = state.players.length === 0
+      const favs = state.players.filter((p) => p.fav).length
       stage.innerHTML = `<div class="lobby">
           <div class="qr-box">${qrSvg(joinUrl)}</div>
           <div class="join-words">
             <p class="join-url">${esc(joinUrl.replace(/^https?:\/\//, ''))}</p>
             <p class="join-code">${esc(code)}</p>
             <div class="players">${state.players.map((p) => `<span class="player" ${p.connected === false ? 'style="opacity:.5"' : ''}>${esc(p.nick)}</span>`).join('')}</div>
+            ${favs ? `<p class="fav-line">${favs === 1 ? '1 favourite' : `${favs} favourites`} for the last round</p>` : ''}
           </div>
         </div>`
     } else if (state.phase === 'question') {

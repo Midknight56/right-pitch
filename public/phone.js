@@ -1,4 +1,4 @@
-// The phone: a nickname, then four big buttons each question, then how it went.
+// The phone: a nickname and a favourite if the player likes, then four big buttons each question, then how it went.
 import { countdown, esc, localEnd, newPid, optionLetter, store } from './lib.js'
 import { roomSocket } from './socket.js'
 
@@ -19,14 +19,16 @@ export async function phoneScreen(app, code) {
     store.set('rp-pid', pid)
   }
   const nick = store.get(`rp-nick-${code}`)
-  if (nick) return play(app, code, pid, nick)
+  if (nick) return play(app, code, pid, nick, store.get(`rp-fav-${code}`) ?? '')
 
   app.innerHTML = `<div class="top"><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">?</span>Right Pitch</a></div>
     <form class="phone" novalidate>
       <div class="phone-card">
         <p class="phone-code">${esc(code)}</p>
         <label class="field"><span class="field-label">Your name on the screen</span>
-          <input class="input" name="nick" maxlength="16" autocomplete="nickname" enterkeyhint="go" required></label>
+          <input class="input" name="nick" maxlength="16" autocomplete="nickname" enterkeyhint="next" required></label>
+        <label class="field"><span class="field-label">A favourite film, show, book or band</span>
+          <input class="input" name="fav" maxlength="40" autocomplete="off" enterkeyhint="go" placeholder="Optional"></label>
         <button class="btn btn-primary btn-wide" type="submit">Join</button>
         <p class="status-line" role="status" data-status></p>
       </div>
@@ -40,12 +42,18 @@ export async function phoneScreen(app, code) {
       form.querySelector('[data-status]').textContent = 'Letters, digits and spaces, up to 16.'
       return
     }
+    const fav = form.fav.value.trim().replace(/\s+/g, ' ')
+    if (fav && !/^[\p{L}\p{N} .,'&:!?-]{1,40}$/u.test(fav)) {
+      form.querySelector('[data-status]').textContent = 'Letters, digits and simple marks, up to 40.'
+      return
+    }
     store.set(`rp-nick-${code}`, name)
-    play(app, code, pid, name)
+    store.set(`rp-fav-${code}`, fav)
+    play(app, code, pid, name, fav)
   })
 }
 
-function play(app, code, pid, nick) {
+function play(app, code, pid, nick, fav) {
   const state = { phase: 'waiting', question: null, end: 0, choice: null, locked: false, reveal: null, you: null, top: [], error: '' }
   let tickTimer = null
 
@@ -55,7 +63,7 @@ function play(app, code, pid, nick) {
   const body = app.querySelector('[data-body]')
   const net = app.querySelector('[data-net]')
 
-  const socket = roomSocket(code, () => `role=player&nick=${encodeURIComponent(nick)}&pid=${encodeURIComponent(pid)}`, onMessage, (s) => {
+  const socket = roomSocket(code, () => `role=player&nick=${encodeURIComponent(nick)}&pid=${encodeURIComponent(pid)}${fav ? `&fav=${encodeURIComponent(fav)}` : ''}`, onMessage, (s) => {
     net.textContent = s === 'reconnecting' ? 'Reconnecting' : nick
     if (s === 'refused' && state.phase !== 'error') {
       state.phase = 'error'

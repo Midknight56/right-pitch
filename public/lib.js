@@ -88,7 +88,7 @@ export function ageWords(list) {
 
 export const KIND_WORDS = {
   film: 'Film', telly: 'Telly', books: 'Books', faces: 'Famous faces',
-  music: 'Music', generation: 'Generation game', local: 'Local',
+  music: 'Music', generation: 'Generation game', local: 'Local', room: "The room's round",
 }
 
 export const LEVEL_WORDS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', deep: 'Deep cut' }

@@ -83,8 +83,11 @@ export interface Meter {
   n: number
 }
 
+/** A round of a quiz: a planned kind, or 'room', the last round a room builds from its players' favourites. */
+export type QuizRoundKind = RoundKind | 'room'
+
 export interface Round {
-  kind: RoundKind
+  kind: QuizRoundKind
   level: Level
   title: string
   banter: string
@@ -111,7 +114,7 @@ export interface PublicQuestion {
   of: number
   round: string
   /** The round kind, for the host screen's backdrop; empty when unknown. */
-  kind: RoundKind | ''
+  kind: QuizRoundKind | ''
   prompt: string
   options: string[]
   endsAt: number

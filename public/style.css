@@ -201,3 +201,4 @@ legend { padding: 0; margin-bottom: 8px; }
   .rounds-grid { grid-template-columns: minmax(0, 1fr); }
   .lede { font-size: 22px; }
 }
+.fav-line { margin: 0; font-size: clamp(16px, 2.6vh, 28px); opacity: 0.8; }

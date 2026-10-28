@@ -125,7 +125,12 @@ from D1, 0 calls), `replay` (the six presets recorded live once, in D1), `off` (
 - Room sends: `lobby {players}`, `question {n, of, round, prompt, options, endsAt}`, `locked {n, answered}`,
   `reveal {n, answer, counts, record, extra}`, `scores {top}`, `you {score, rank, last}`, `end {top}`, `error {text}`.
 - Score: 1,000 for a right answer plus up to 500 for speed.
-- Stores: the quiz (with answers), and per player only a nickname, a random player id and a score. Everything is
+- The room's round (since 28 Oct): a player may send `fav` (up to 40 letters, digits and title marks, no rude word) with
+  the socket open. At Start, `src/room/taste.ts` searches up to 5 favourites, asks insights for the room's top picks in
+  the last media round's type and band, and scores that round's 20 records against the same taste; questions are
+  `room_pick` (4 options, answer beats every other by 0.05 affinity). Under 3 fair questions or any failure: the planned
+  round plays. At most 7 live calls a room, from the 'qloo-total' daily count. `RoomState.roomRound` records the result.
+- Stores: the quiz (with answers), and per player only a nickname, an optional favourite, a random player id and a score. Everything is
   deleted 24 hours after the room is made (an alarm), and a room past 24 hours refuses every socket.
 - WebSocket Hibernation API (`ctx.acceptWebSocket`), so a quiet room costs no duration.
 

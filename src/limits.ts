@@ -70,6 +70,26 @@ export const QUESTION_SECONDS = 20
 /** A room and everything in it is deleted this long after it is made. */
 export const ROOM_HOURS = 24
 export const NICKNAME_MAX = 16
+/** A player may give one favourite (a film, show, book or act) at join: this many letters at most. */
+export const FAVOURITE_MAX = 40
+
+// ---- The room's own round -------------------------------------------------------------------------------------------
+// At Start, the room asks Qloo for a last round built from its players' favourites: one search per favourite, then two
+// insights calls (the room's top picks in the round's band, and the planned round's 20 items scored against the room).
+// Every live call takes one from the same 'qloo-total' counter as the builds (DAILY_QLOO_CALLS, 500 a day), so the day's
+// and the month's arithmetic above does not change: 60 rooms x 7 = 420 calls is the most rooms can ask for, and the
+// counter refuses past 500 for builds and rooms together. Cached answers are free. A refused or failed call plays the
+// planned round. The key is the hackathon's free key: no call costs money.
+export const ROOM_FAVOURITES = 5
+export const ROOM_ROUND_CALLS = ROOM_FAVOURITES + 2
+/** The room's top picks asked for: answers come from these. */
+export const ROOM_TOP_PICKS = 10
+/** The right answer's affinity must beat every other option's by this much. Measured 28 Oct (Jaws, ABBA and Harry
+ *  Potter, a medium film round in Glasgow): the room's top picks scored 0.837 to 0.848, the planned items 0.664 to
+ *  0.823, so 0.05 still gives five questions. Affinity is the same number in every call (Downton Abbey 0.823 twice). */
+export const ROOM_MARGIN = 0.05
+/** Fewer fair questions than this, and the planned round plays. */
+export const ROOM_MIN_QUESTIONS = 3
 
 /** The pause between events of a cached or recorded build, so the log reads as it was built. */
 export const REPLAY_PACE_MS = 120

@@ -1,4 +1,4 @@
-import { YEAR_MARGIN } from '../limits'
+import { ROOM_MARGIN, YEAR_MARGIN } from '../limits'
 import type { Level, Question, RecordRef } from './types'
 import { BANDS } from './types'
 import {
@@ -34,6 +34,8 @@ export function verifyQuestion(
     return 'Answer index out of range.'
   }
   const generation = question.template === 'generation_lean'
+  // The room's own round: four options, each scored by the room's taste (query.affinity, 0 to 1).
+  const roomPick = question.template === 'room_pick'
   if (question.options.length !== (generation ? 2 : 4)) return 'Wrong option count.'
 
   const records = generation
@@ -45,6 +47,10 @@ export function verifyQuestion(
     if (record.field === 'query.affinity' && generation) {
       if (!Number.isFinite(Number(question.item?.value)) || Number(question.item?.value) < 0
         || Number(question.item?.value) > 1) return 'A field is missing on an option.'
+    } else if (roomPick) {
+      const score = Number(record.value)
+      if (record.field !== 'query.affinity' || typeof record.value !== 'number' || !Number.isFinite(score)
+        || score < 0 || score > 1) return 'A field is missing on an option.'
     } else {
       const reader = readers[record.field]
       if (!reader || record.value === undefined) return 'A field is missing on an option.'
@@ -76,6 +82,13 @@ export function verifyQuestion(
   if (question.template === 'local_hood') {
     const neighborhoods = question.options.map((option) => option.record?.value)
     return new Set(neighborhoods).size === 4 ? null : 'Neighborhoods are not distinct.'
+  }
+
+  if (roomPick) {
+    const scores = validRecords.map((record) => Number(record.value))
+    if (scores[question.answer] !== Math.max(...scores)) return 'The marked answer is not the one the field picks.'
+    const ranked = [...scores].sort((left, right) => right - left)
+    return ranked[0] - ranked[1] >= ROOM_MARGIN - 1e-9 ? null : 'The answer margin is too small.'
   }
 
   const values = validRecords.map((record) => record.value)
