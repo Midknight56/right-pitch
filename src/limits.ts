@@ -25,6 +25,30 @@ export const QLOO_CALL_GAP_MS = 110
 export const DAILY_QLOO_CALLS_PER_VISITOR = 40
 /** Fresh builds per visitor a day. A preset, a replay or a build already in the cache is free and not counted. */
 export const DAILY_BUILDS_PER_VISITOR = 2
+export const JUDGING_FROM = Date.UTC(2026, 10, 2)
+export const JUDGING_UNTIL = Date.UTC(2026, 10, 6, 12)
+export const JUDGING_BUILDS_PER_VISITOR = 8
+export const JUDGING_QLOO_CALLS_PER_VISITOR = 160
+export const JUDGING_ROOMS_PER_VISITOR_PER_DAY = 12
+// Whole app totals stay at 500 Qloo calls, 450 neurons and 60 rooms a day, so the spend ceiling stays the same.
+// Eight builds times 16 calls is 128, plus seed searches, which fits 160. Twelve rooms per visitor fit inside 60 rooms for the whole app.
+
+let clock: (() => number) | null = null
+
+export function now(): number {
+  return clock ? clock() : Date.now()
+}
+
+export function setClock(fn: (() => number) | null): void {
+  clock = fn
+}
+
+export function perVisitorCaps(at = now()): { builds: number; qlooCalls: number; rooms: number } {
+  if (at >= JUDGING_FROM && at < JUDGING_UNTIL) {
+    return { builds: JUDGING_BUILDS_PER_VISITOR, qlooCalls: JUDGING_QLOO_CALLS_PER_VISITOR, rooms: JUDGING_ROOMS_PER_VISITOR_PER_DAY }
+  }
+  return { builds: DAILY_BUILDS_PER_VISITOR, qlooCalls: DAILY_QLOO_CALLS_PER_VISITOR, rooms: ROOMS_PER_VISITOR_PER_DAY }
+}
 
 // ---- Workers AI (the shared ledger) -------------------------------------------------------------------------------
 // The account's free 10,000 neurons a day is shared through the hackathon-ledger. Shares during judging (2 to 5 Nov):

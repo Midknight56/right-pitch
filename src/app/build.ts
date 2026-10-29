@@ -1,7 +1,6 @@
 import type { AiBinding } from '../agent/model'
 import { WorkersAiModel } from '../agent/model'
-import { DAILY_BUILDS_PER_VISITOR, DAILY_NEURONS, DAILY_QLOO_CALLS, DAILY_QLOO_CALLS_PER_VISITOR } from '../limits'
-import { DEFAULT_ACCOUNT_NEURONS, MAX_CALL_NEURONS, REPLAY_PACE_MS } from '../limits'
+import { DAILY_NEURONS, DAILY_QLOO_CALLS, DEFAULT_ACCOUNT_NEURONS, MAX_CALL_NEURONS, now, perVisitorCaps, REPLAY_PACE_MS } from '../limits'
 import { buildQuiz } from '../quiz/build'
 import { PRESETS } from '../quiz/presets'
 import { AGES, ROUND_KINDS } from '../quiz/types'
@@ -104,7 +103,7 @@ async function visitorId(request: Request, secret: string): Promise<string> {
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10)
+  return new Date(now()).toISOString().slice(0, 10)
 }
 
 function counter(env: AppEnv, name: string) {
@@ -162,14 +161,15 @@ export async function handleBuild(
       // The shared key's month is nearly used: no fresh build, so no model call or visitor build is spent on one that
       // cannot ask Qloo. Recorded builds above still play.
       const quota = new D1Quota(env.DB)
-      if (quotaLow(await quota.read(), Date.now())) {
+      if (quotaLow(await quota.read(), now())) {
         await send({ t: 'start', mode: 'off', quiz: '' })
         await send({ t: 'error', text: new QlooQuotaLow().message })
         return
       }
 
       const host = await visitorId(request, env.SESSION_SECRET)
-      const buildLimit = Number(env.BUILDS_PER_VISITOR ?? DAILY_BUILDS_PER_VISITOR)
+      const caps = perVisitorCaps()
+      const buildLimit = Number(env.BUILDS_PER_VISITOR ?? caps.builds)
       if (!(await allowBuild(counter(env, `builds:${host}`), today(), buildLimit))) {
         await send({ t: 'error', text: 'Daily build limit reached.' })
         return
@@ -178,7 +178,7 @@ export async function handleBuild(
       const qloo = new QlooClient(env.QLOO_API_KEY, fetch, new D1Cache(env.DB), async () => {
         return allowQlooCall(
           counter(env, `visitor:${host}`), counter(env, 'qloo-total'), today(),
-          Number(env.QLOO_CALLS_PER_VISITOR ?? DAILY_QLOO_CALLS_PER_VISITOR), DAILY_QLOO_CALLS,
+          Number(env.QLOO_CALLS_PER_VISITOR ?? caps.qlooCalls), DAILY_QLOO_CALLS,
         )
       }, { quota })
       const ledger = new NeuronLedger(env.LEDGER ?? env.DB, {

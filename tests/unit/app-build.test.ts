@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { handleBuild, handleQuiz, handleReport } from '../../src/app/build'
 import { FakeD1 } from './fake-d1'
 import type { Setup } from '../../src/quiz/types'
+import { setClock } from '../../src/limits'
 
 const setup: Setup = {
   town: 'Halifax',
@@ -15,6 +16,7 @@ const fetchMock = vi.fn(async () => new Response(JSON.stringify({ results: { ent
 afterEach(() => {
   for (const database of databases.splice(0)) database.close()
   vi.unstubAllGlobals()
+  setClock(null)
 })
 
 function environment(options: { key?: string; buildLimit?: string } = {}) {
@@ -111,6 +113,28 @@ describe('build route', () => {
     }
     const buildCounter = [...env.counts.entries()].find(([name]) => name.startsWith('builds:'))
     expect(buildCounter?.[1]).toBe(2)
+  })
+
+  it('allows eight visitor builds during judging and refuses the ninth', async () => {
+    setClock(() => Date.UTC(2026, 10, 3))
+    vi.stubGlobal('fetch', fetchMock)
+    const { env } = environment({ key: 'synthetic-key' })
+    for (let index = 0; index < 9; index++) {
+      const result = await runBuild(await buildRequest({ setup: { ...setup, night: `judging-${index}` } }), env)
+      if (index === 8) expect(result.body).toContain('Daily build limit reached.')
+      else expect(result.body).not.toContain('Daily build limit reached.')
+    }
+  })
+
+  it('keeps the normal visitor build cap before judging', async () => {
+    setClock(() => Date.UTC(2026, 10, 1))
+    vi.stubGlobal('fetch', fetchMock)
+    const { env } = environment({ key: 'synthetic-key' })
+    for (let index = 0; index < 3; index++) {
+      const result = await runBuild(await buildRequest({ setup: { ...setup, night: `before-${index}` } }), env)
+      if (index === 2) expect(result.body).toContain('Daily build limit reached.')
+      else expect(result.body).not.toContain('Daily build limit reached.')
+    }
   })
 
   it('starts no fresh build while the shared key month is under the floor', async () => {

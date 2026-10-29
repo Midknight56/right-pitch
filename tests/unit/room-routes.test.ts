@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { handleRooms } from '../../src/room/routes'
 import { ROOMS_PER_DAY, ROOMS_PER_VISITOR_PER_DAY } from '../../src/limits'
+import { setClock } from '../../src/limits'
 import type { Quiz } from '../../src/quiz/types'
 
 const quiz: Quiz = { id: 'quiz123', createdAt: 1, mode: 'template', setup: { town: 'Halifax', crowd: ['30_to_34'], difficulty: 'easy', rounds: [] }, rounds: [], qlooCalls: 0, neurons: 0 }
+afterEach(() => setClock(null))
 function fixture(opts: { quiz?: Quiz | null; visitorCap?: number; totalCap?: number } = {}) {
   const counts = new Map<string, number>(), infos = new Map<string, { exists: boolean; phase?: string; players?: number }>()
   const env = {
@@ -44,5 +46,16 @@ describe('room routes', () => {
     const total = fixture()
     for (let i = 0; i < ROOMS_PER_DAY; i++) expect((await handleRooms(total.post(`10.0.0.${i}`), total.env)).status).toBe(201)
     expect((await handleRooms(total.post('10.1.1.1'), total.env)).status).toBe(429)
+  })
+  it('allows twelve rooms per visitor during judging and keeps the whole app cap', async () => {
+    setClock(() => Date.UTC(2026, 10, 3))
+    const visitor = fixture()
+    for (let i = 0; i < 12; i++) expect((await handleRooms(visitor.post(), visitor.env)).status).toBe(201)
+    expect((await handleRooms(visitor.post(), visitor.env)).status).toBe(429)
+    const total = fixture()
+    for (let i = 0; i < ROOMS_PER_DAY; i++) expect((await handleRooms(total.post(`10.0.0.${i}`), total.env)).status).toBe(201)
+    const refused = await handleRooms(total.post('10.1.1.1'), total.env)
+    expect(refused.status).toBe(429)
+    expect(await refused.json()).toEqual({ error: 'Daily room limit reached' })
   })
 })

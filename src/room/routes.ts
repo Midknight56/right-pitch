@@ -1,5 +1,5 @@
 import type { Env } from '../worker'
-import { ROOMS_PER_DAY, ROOMS_PER_VISITOR_PER_DAY } from '../limits'
+import { now, perVisitorCaps, ROOMS_PER_DAY } from '../limits'
 import type { Quiz } from '../quiz/types'
 import { refuse } from './refuse'
 
@@ -67,11 +67,11 @@ export async function handleRooms(request: Request, env: Env): Promise<Response>
     if (!row) return error('Quiz not found', 404)
     let quiz: Quiz
     try { quiz = JSON.parse(row.quiz) as Quiz } catch { return error('Quiz is invalid', 500) }
-    const now = Date.now()
-    const day = new Date(now).toISOString().slice(0, 10)
+    const currentTime = now()
+    const day = new Date(currentTime).toISOString().slice(0, 10)
     const visitorId = await visitor(request, env.SESSION_SECRET)
     const perVisitor = env.COUNTERS.get(env.COUNTERS.idFromName(`rooms:${visitorId}`))
-    if (!await perVisitor.take(day, ROOMS_PER_VISITOR_PER_DAY)) {
+    if (!await perVisitor.take(day, perVisitorCaps(currentTime).rooms)) {
       return error('Daily room limit reached for this visitor', 429)
     }
     const total = env.COUNTERS.get(env.COUNTERS.idFromName('rooms-total'))
@@ -83,7 +83,7 @@ export async function handleRooms(request: Request, env: Env): Promise<Response>
       try {
         await (stub as unknown as {
           init(quiz: Quiz, code: string, now: number): Promise<void>
-        }).init(quiz, code, now)
+        }).init(quiz, code, currentTime)
         return Response.json({ code, hostToken: await hostToken(code, env.SESSION_SECRET) }, { status: 201 })
       } catch (cause) {
         if (!(cause instanceof Error) || !cause.message.toLowerCase().includes('initialized')) {
