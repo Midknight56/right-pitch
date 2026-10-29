@@ -3,6 +3,7 @@ import { namesItsArea } from './fit'
 import type { RawEntity } from '../qloo/client'
 import type { Question, RecordRef } from './types'
 import * as fields from './fields'
+import { nameKey } from './verify'
 
 export interface TemplateContext {
   town?: string
@@ -71,7 +72,7 @@ function makeNumericQuestion(
   _context: TemplateContext = {},
 ): TemplateResult {
   const available = pool.filter((entity) => {
-    return entity.entity_id && !used.has(entity.entity_id) && reader(entity) !== undefined
+    return entity.entity_id && !used.has(entity.entity_id) && !used.has(nameKey(entity.name ?? '')) && reader(entity) !== undefined
       && fields.popularity(entity) !== undefined
   })
   const shuffled = shuffle(available, rng)
@@ -111,7 +112,7 @@ function makeLocalNeighborhoodQuestion(
   used: Set<string>,
   context: TemplateContext,
 ): TemplateResult {
-  const places = pool.filter((entity) => entity.entity_id && !used.has(entity.entity_id)
+  const places = pool.filter((entity) => entity.entity_id && !used.has(entity.entity_id) && !used.has(nameKey(entity.name ?? ''))
     && fields.neighborhood(entity) && fields.popularity(entity) !== undefined)
   const byNeighborhood = new Map<string, RawEntity>()
   for (const place of shuffle(places, rng)) {
@@ -147,7 +148,7 @@ function makeGenerationQuestion(
   used: Set<string>,
   context: TemplateContext,
 ): TemplateResult {
-  const eligible = pool.filter((entity) => entity.entity_id && !used.has(entity.entity_id)
+  const eligible = pool.filter((entity) => entity.entity_id && !used.has(entity.entity_id) && !used.has(nameKey(entity.name ?? ''))
     && context.young?.has(entity.entity_id) && context.old?.has(entity.entity_id)
     && fields.popularity(entity) !== undefined)
   eligible.sort((left, right) => {

@@ -6,7 +6,7 @@ import { LENS_ITEMS, QUESTIONS_PER_ROUND } from '../limits'
 import { startYear } from './fields'
 import { modelNames, modelPlan, widen } from './plan'
 import { templates } from './templates'
-import { verifyQuestion } from './verify'
+import { nameKey, verifyQuestion } from './verify'
 import { fitForRoom, shortName, townName } from './fit'
 import { canMakeQlooCall } from '../app/caps'
 import type { BuildEvent, BuildMode, Question, Quiz, Round, RoundKind, RoundPlan, Setup } from './types'
@@ -190,7 +190,8 @@ export async function buildQuiz(setup: Setup, deps: BuildDeps, send: Sender): Pr
         })
       }
       const lensPool = kind === 'generation'
-        ? pool.filter((entity) => !entity.entity_id || !used.has(entity.entity_id))
+        ? pool.filter((entity) => (!entity.entity_id || !used.has(entity.entity_id))
+          && !used.has(nameKey(entity.name ?? '')))
         : pool
       const lenses = kind === 'generation'
         ? await generationLenses(deps.qloo, params, lensPool, roundIndex, calls, send)
@@ -218,8 +219,14 @@ export async function buildQuiz(setup: Setup, deps: BuildDeps, send: Sender): Pr
         }
         if (question) {
           questions.push(question)
-          for (const option of question.options) if (option.record) localUsed.add(option.record.qlooId)
-          if (question.item) localUsed.add(question.item.qlooId)
+          for (const option of question.options) if (option.record) {
+            localUsed.add(option.record.qlooId)
+            localUsed.add(nameKey(option.record.name))
+          }
+          if (question.item) {
+            localUsed.add(question.item.qlooId)
+            localUsed.add(nameKey(question.item.name))
+          }
           await emit({ t: 'question', round: roundIndex, index: questionIndex, ok: true })
         } else {
           await emit({ t: 'question', round: roundIndex, index: questionIndex, ok: false, why: reason })
@@ -228,8 +235,14 @@ export async function buildQuiz(setup: Setup, deps: BuildDeps, send: Sender): Pr
       if (questions.length === QUESTIONS_PER_ROUND || !canMakeQlooCall(calls.value) || attempt === 2) {
         accepted = questions
         for (const question of accepted) {
-          for (const option of question.options) if (option.record) used.add(option.record.qlooId)
-          if (question.item) used.add(question.item.qlooId)
+          for (const option of question.options) if (option.record) {
+            used.add(option.record.qlooId)
+            used.add(nameKey(option.record.name))
+          }
+          if (question.item) {
+            used.add(question.item.qlooId)
+            used.add(nameKey(question.item.name))
+          }
         }
         break
       }

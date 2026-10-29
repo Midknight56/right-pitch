@@ -24,6 +24,10 @@ const readers: Record<string, (entity: RawEntity) => number | string | undefined
   popularity,
 }
 
+export function nameKey(name: string): string {
+  return `name:${name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase()}`
+}
+
 export function verifyQuestion(
   question: Question,
   band: { min: number; max: number } | Level,
@@ -70,6 +74,8 @@ export function verifyQuestion(
   }
   const ids = validRecords.map((record) => record.qlooId)
   if (ids.some((id) => used.has(id)) || new Set(ids).size !== ids.length) return 'An id is used twice in the quiz.'
+  const names = validRecords.map((record) => nameKey(record.name))
+  if (names.some((name) => used.has(name)) || new Set(names).size !== names.length) return 'A name is used twice in the quiz.'
 
   if (generation) {
     if (!question.lens || !Number.isFinite(question.lens.young) || !Number.isFinite(question.lens.old)

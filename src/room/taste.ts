@@ -6,7 +6,7 @@ import { QUESTIONS_PER_ROUND, ROOM_FAVOURITES, ROOM_MARGIN, ROOM_MIN_QUESTIONS, 
 import { entityTypes, seededRandom } from '../quiz/build'
 import { popularity } from '../quiz/fields'
 import { fitForRoom, shortName } from '../quiz/fit'
-import { verifyQuestion } from '../quiz/verify'
+import { nameKey, verifyQuestion } from '../quiz/verify'
 import type { Question, Quiz, RecordRef, Round, RoundKind } from '../quiz/types'
 import { favourites, type RoomState } from './game'
 
@@ -62,6 +62,8 @@ export async function buildRoomRound(quiz: Quiz, given: Favourite[], qloo: QlooC
   const quizIds = new Set(quiz.rounds.flatMap((round) => round.questions.flatMap((question) => [
     ...question.options.flatMap((option) => option.record ? [option.record.qlooId] : []),
     ...(question.item ? [question.item.qlooId] : []),
+    ...question.options.flatMap((option) => option.record ? [nameKey(option.record.name)] : []),
+    ...(question.item ? [nameKey(question.item.name)] : []),
   ])))
 
   try {
@@ -84,7 +86,8 @@ export async function buildRoomRound(quiz: Quiz, given: Favourite[], qloo: QlooC
       take: String(ROOM_TOP_PICKS),
     })
     const picks = top.results.map((entity) => scoredRecord(entity, type))
-      .filter((pick): pick is Scored => !!pick && !quizIds.has(pick.record.qlooId) && !seeds.some((seed) => seed.id === pick.record.qlooId))
+      .filter((pick): pick is Scored => !!pick && !quizIds.has(pick.record.qlooId)
+        && !quizIds.has(nameKey(pick.record.name)) && !seeds.some((seed) => seed.id === pick.record.qlooId))
       .sort((left, right) => right.affinity - left.affinity)
 
     // The planned round's own items, scored against the same taste: the other options. Affinity is the same number
@@ -124,7 +127,10 @@ export async function buildRoomRound(quiz: Quiz, given: Favourite[], qloo: QlooC
       }
       if (verifyQuestion(question, band, used)) continue
       questions.push(question)
-      for (const option of options) used.add(option.record.qlooId)
+      for (const option of options) {
+        used.add(option.record.qlooId)
+        used.add(nameKey(option.record.name))
+      }
     }
     if (questions.length < ROOM_MIN_QUESTIONS) return keep(`Only ${questions.length} fair questions from the room's taste.`)
 

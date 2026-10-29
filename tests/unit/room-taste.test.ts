@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createGame, favourites, join, lobby, start } from '../../src/room/game'
 import { buildRoomRound, startWithRoomRound } from '../../src/room/taste'
 import { QlooClient } from '../../src/qloo/client'
-import { verifyQuestion } from '../../src/quiz/verify'
+import { nameKey, verifyQuestion } from '../../src/quiz/verify'
 import { ROOM_FAVOURITES, ROOM_ROUND_CALLS } from '../../src/limits'
 import type { Question, Quiz, Round, RoundKind } from '../../src/quiz/types'
 
@@ -120,6 +120,20 @@ describe('the room round: built from the favourites', () => {
     const signal = calls.filter((u) => u.pathname === '/v2/insights').map((u) => u.searchParams.get('signal.interests.entities'))
     expect(signal).toEqual([`${id(1)},${id(2)},${id(3)}`, `${id(1)},${id(2)},${id(3)}`])
     expect(calls[3]!.searchParams.get('filter.type')).toBe('urn:entity:artist')
+  })
+
+  it('does not use a top pick as an answer when its name already appears in the quiz', async () => {
+    const planned = quiz()
+    planned.rounds[0]!.questions[0]!.options[0]!.record!.name = 'Room pick 0'
+    const result = await buildRoomRound(planned, favs, fakeQloo().client)
+    expect(result.built).toBe(true)
+    const earlierNames = new Set(planned.rounds.flatMap((round) => round.questions.flatMap((question) => [
+      ...question.options.flatMap((option) => option.record ? [nameKey(option.record.name)] : []),
+      ...(question.item ? [nameKey(question.item.name)] : []),
+    ])))
+    const roomAnswers = result.quiz.rounds.at(-1)!.questions.map((question) => nameKey(question.options[question.answer]!.record!.name))
+    expect(roomAnswers).not.toContain(nameKey('room pick 0'))
+    expect(earlierNames).toContain(nameKey('room pick 0'))
   })
 
   it('moves the room round to the end when the last planned round is not a media round', async () => {

@@ -5,7 +5,7 @@ import { buildQuiz } from '../../src/quiz/build'
 import * as fields from '../../src/quiz/fields'
 import { modelNames, modelPlan, templatePlan, widen } from '../../src/quiz/plan'
 import { templates } from '../../src/quiz/templates'
-import { verifyQuestion } from '../../src/quiz/verify'
+import { nameKey, verifyQuestion } from '../../src/quiz/verify'
 import type { Setup } from '../../src/quiz/types'
 import { makeEntities, movies } from '../fixtures/entities'
 
@@ -115,6 +115,19 @@ describe('question templates', () => {
 })
 
 describe('question verification', () => {
+  it('refuses a new id when its name is already used, ignoring case and repeated spacing', () => {
+    const base = templates.film_first(movies, rng(), new Set(), {})
+    if ('why' in base) throw new Error(base.why)
+    const duplicateName = {
+      ...base,
+      options: base.options.map((option, index) => index === 0
+        ? { ...option, record: { ...option.record!, qlooId: 'different-id', name: 'Maisie  PETERS' } }
+        : option),
+    }
+    expect(verifyQuestion(duplicateName, { min: 0.97, max: 1 }, new Set(['name:maisie peters'])))
+      .toBe('A name is used twice in the quiz.')
+  })
+
   it('rejects missing fields, ties, narrow margins, bands, repeated ids, counts and bad answers', () => {
     const base = templates.film_first(movies, rng(), new Set(), {})
     if ('why' in base) throw new Error(base.why)
@@ -297,6 +310,39 @@ describe('round planning', () => {
 })
 
 describe('build loop', () => {
+  it('does not repeat a name across music and faces when Qloo uses different ids', async () => {
+    const artists = makeEntities('artist', 3100, 0.98).map((entity, index) => ({
+      ...entity,
+      name: index === 0 ? 'Maisie Peters' : entity.name,
+      properties: { ...entity.properties, start_year: 2012 + index },
+    }))
+    const people = makeEntities('person', 3200, 0.98).map((entity, index) => ({
+      ...entity,
+      name: index === 0 ? 'Maisie  PETERS' : entity.name,
+      properties: { ...entity.properties, date_of_birth: `${String(1940 + index).padStart(4, '0')}-06-15` },
+    }))
+    const qloo = {
+      insights: async (params: Record<string, string>) => ({
+        results: params['filter.results.entities'] ? [] : params['filter.type'] === 'urn:entity:artist' ? artists : people,
+        cached: false,
+        ms: 1,
+      }),
+      search: async () => ({ results: [], cached: false, ms: 1 }),
+    }
+    const quiz = await buildQuiz({ ...setup, crowd: ['24_and_younger'], rounds: ['music', 'faces', 'generation', 'local'] }, {
+      qloo: qloo as never,
+      budget: { reserve: async () => null },
+      id: 'same-name-across-rounds',
+      year: 2026,
+    }, () => undefined)
+    const names = quiz.rounds.flatMap((round) => round.questions.flatMap((question) => [
+      ...question.options.flatMap((option) => option.record ? [nameKey(option.record.name)] : []),
+      ...(question.item ? [nameKey(question.item.name)] : []),
+    ]))
+    expect(names.filter((name) => name === nameKey('Maisie Peters'))).toHaveLength(1)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
   it('builds four five-question rounds without repeating an entity', async () => {
     const pools = new Map<string, ReturnType<typeof makeEntities>>([
       ['movie', makeEntities('movie', 2000, 0.98)],
