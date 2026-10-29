@@ -1,8 +1,36 @@
 import { describe, expect, it } from 'vitest'
-import { BUILD_KINDS, countdown, createNdjsonSplitter, meterPosition, optionLetter } from '../../public/lib.js'
+import { BUILD_KINDS, countdown, createNdjsonSplitter, meterPosition, optionLetter, readWithIdle } from '../../public/lib.js'
 import { ROUND_KINDS } from '../../src/quiz/types'
 
 describe('public helpers', () => {
+  it('ends an idle reader and cancels it', async () => {
+    let cancelled = false
+    const reader = {
+      read: () => new Promise<ReadableStreamReadResult<string>>(() => {}),
+      cancel: async () => { cancelled = true },
+    }
+
+    await expect(readWithIdle(reader, 50)).rejects.toMatchObject({ name: 'IdleReaderError' })
+    expect(cancelled).toBe(true)
+  })
+  it('reads chunks that arrive within the idle limit', async () => {
+    const chunks = ['one', 'two', 'three']
+    const reader = {
+      read: async () => {
+        await new Promise(resolve => setTimeout(resolve, 10))
+        return chunks.length ? { value: chunks.shift()!, done: false } : { value: undefined, done: true }
+      },
+      cancel: async () => {},
+    }
+    const received = []
+
+    for (;;) {
+      const result = await readWithIdle(reader, 50)
+      if (result.done) break
+      received.push(result.value)
+    }
+    expect(received).toEqual(['one', 'two', 'three'])
+  })
   it('splits complete NDJSON rows and flushes the final row', () => {
     const rows: unknown[] = []
     const splitter = createNdjsonSplitter(row => rows.push(row))

@@ -1,3 +1,5 @@
+export const BUILD_IDLE_MS: number
+export function readWithIdle<T>(reader: Pick<ReadableStreamDefaultReader<T>, 'read' | 'cancel'>, ms: number): Promise<ReadableStreamReadResult<T>>
 export function createNdjsonSplitter(onValue: (value: any) => void): { push(chunk: string): void; end(): void }
 export function meterPosition(value: number): number
 export function optionLetter(index: number): string

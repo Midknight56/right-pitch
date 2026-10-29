@@ -1,5 +1,22 @@
 // Pure helpers shared by the pages. Unit tested in tests/unit/lib.test.ts.
 
+// A live Qloo call gives up at 8 s and a cached replay sends a line every 120 ms, so 45 s with no line at all is a stuck connection.
+export const BUILD_IDLE_MS = 45_000
+
+/** Reads once, rejecting and cancelling the reader if no chunk arrives in time. */
+export function readWithIdle(reader, ms) {
+  let timer
+  const idle = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error('Reader idle')
+      error.name = 'IdleReaderError'
+      void reader.cancel().catch(() => {})
+      reject(error)
+    }, ms)
+  })
+  return Promise.race([reader.read(), idle]).finally(() => clearTimeout(timer))
+}
+
 /** Splits a streamed NDJSON body into values; a line that does not parse becomes an error event. */
 export function createNdjsonSplitter(onValue) {
   let pending = ''

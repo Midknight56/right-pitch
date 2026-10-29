@@ -1,7 +1,7 @@
 // The builder: the host sets up the night, watches the build, checks each answer, then opens the room.
 import { AGES } from './words.js'
 import {
-  BUILD_KINDS, KIND_WORDS, LEVEL_WORDS, ageWords, createNdjsonSplitter, describeCall, esc, fieldLabel, meterSpot, optionLetter, pct, store,
+  BUILD_IDLE_MS, BUILD_KINDS, KIND_WORDS, LEVEL_WORDS, ageWords, createNdjsonSplitter, describeCall, esc, fieldLabel, meterSpot, optionLetter, pct, readWithIdle, store,
 } from './lib.js'
 
 const KINDS = BUILD_KINDS
@@ -141,12 +141,17 @@ export async function builder(app) {
     const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
     try {
       for (;;) {
-        const { value, done: finished } = await reader.read()
+        const { value, done: finished } = await readWithIdle(reader, BUILD_IDLE_MS)
         if (finished) break
         splitter.push(value)
       }
       splitter.end()
-    } catch {
+    } catch (error) {
+      if (error?.name === 'IdleReaderError') {
+        line('No answer for 45 seconds.', 'log-drop')
+        status.textContent = 'The build took too long. Try again.'
+        return
+      }
       line('The connection dropped.', 'log-drop')
     }
     if (!quiz && !stopped) status.textContent = 'The build stopped early. Try again.'
@@ -175,9 +180,16 @@ export async function builder(app) {
   async function openRoom(button) {
     button.disabled = true
     try {
-      const response = await fetch('/api/rooms', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ quiz: quiz.id }),
-      })
+      let response
+      try {
+        response = await fetch('/api/rooms', {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ quiz: quiz.id }),
+        })
+      } catch {
+        status.textContent = 'No connection. Try again.'
+        button.disabled = false
+        return
+      }
       const body = await response.json().catch(() => ({}))
       if (!response.ok || !body.code) throw new Error(body.error ?? 'The room did not open. Try again.')
       store.set(`rp-host-${body.code}`, { token: body.hostToken, quiz: quiz.id })
