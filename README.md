@@ -76,9 +76,9 @@ the arithmetic beside it, and each has a test that fails with its check taken ou
 | Qloo calls in one build | 16, spaced to stay under 10 a second |
 | Qloo calls for one room's round | 7, from the same 500 a day |
 | Fresh builds pause when the shared key's month has fewer calls left than | 3,000 |
-| Fresh builds a visitor a day | 2 |
+| Fresh builds a visitor a day | 2 (8 from 2 to 5 Nov, for judging) |
 | Model use a day | 450 neurons (a measured build uses about 7) |
-| Rooms a day, and per visitor | 60, and 3 |
+| Rooms a day, and per visitor | 60, and 3 (12 from 2 to 5 Nov, for judging) |
 | Players in a room | 40 |
 
 The same setup built twice is served from the cache: 0 Qloo calls and 0 model use. When the model budget is spent, a
