@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { describeCall, esc, fieldLabel, localEnd, meterSpot, newPid } from '../../public/lib.js'
+import { check } from '../../public/builder.js'
 
 describe('page helpers', () => {
   it('counts down on the phone clock, not the room clock', () => {
@@ -38,5 +39,32 @@ describe('page helpers', () => {
     expect(fieldLabel('date_of_birth')).toBe('Born')
     expect(fieldLabel('business_rating')).toBe('Rating')
     expect(fieldLabel('some_new_field')).toBe('Some new field')
+  })
+})
+
+describe('builder setup checks', () => {
+  const setup = (town: string, seeds: string[] = []) => ({
+    town,
+    crowd: ['30_to_34'],
+    rounds: ['film', 'music', 'generation', 'local'],
+    seeds,
+  })
+
+  it('explains towns with digits or markup', () => {
+    expect(check(setup('12345'))).toBe('A town is letters only, like Glasgow, Scotland.')
+    expect(check(setup('<b>Halifax</b>'))).toBe('A town is letters only, like Glasgow, Scotland.')
+  })
+
+  it('explains towns over 40 characters', () => {
+    expect(check(setup('a'.repeat(41)))).toBe('Keep the town to 40 letters or fewer.')
+  })
+
+  it('explains local names over 40 characters', () => {
+    expect(check(setup('Halifax', ['a'.repeat(41)]))).toBe('Keep each local name to 40 letters or fewer.')
+  })
+
+  it('accepts town names allowed by the server', () => {
+    expect(check(setup('Halifax, Nova Scotia'))).toBe('')
+    expect(check(setup("St. John's, Newfoundland"))).toBe('')
   })
 })

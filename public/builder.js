@@ -20,7 +20,7 @@ export async function builder(app) {
       <form class="panel setup" novalidate>
         <h1 class="lede">A quiz pitched at the room you are in.</h1>
         <fieldset><legend class="field-label">Start from</legend><div class="chips" data-presets></div></fieldset>
-        <label class="field"><span class="field-label">Town</span><input class="input" name="town" maxlength="60" autocomplete="off" required></label>
+        <label class="field"><span class="field-label">Town</span><input class="input" name="town" maxlength="40" autocomplete="off" required></label>
         <fieldset><legend class="field-label">Who is in</legend><div class="chips" data-crowd></div></fieldset>
         <fieldset><legend class="field-label">How hard</legend><div class="chips" data-difficulty></div></fieldset>
         <fieldset><legend class="field-label">Four rounds</legend><div class="chips" data-rounds></div></fieldset>
@@ -200,8 +200,11 @@ export async function builder(app) {
   }
 }
 
-function check(setup) {
+export function check(setup) {
   if (!setup.town.trim()) return 'Type a town.'
+  if (!/^[\p{L} .',-]+$/u.test(setup.town)) return 'A town is letters only, like Glasgow, Scotland.'
+  if (setup.town.trim().length > 40) return 'Keep the town to 40 letters or fewer.'
+  if (setup.seeds?.some((seed) => seed.length > 40)) return 'Keep each local name to 40 letters or fewer.'
   if (!setup.crowd.length) return 'Pick who is in.'
   const left = 4 - setup.rounds.length
   if (left) return `Pick ${left} more round${left === 1 ? '' : 's'}.`
