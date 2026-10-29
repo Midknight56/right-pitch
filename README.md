@@ -134,7 +134,7 @@ node tools/phones.mjs
 
 The first line fetches the test browser, once.
 
-`tools/e2e.mjs` plays a whole night against the running app with a host and two phones, plus the bad paths: 15 steps.
+`tools/e2e.mjs` plays a whole night against the running app with a host and two phones, plus the bad paths: 20 steps.
 `tools/phones.mjs` needs no running app. It serves the pages with scripted data and measures twelve screens at fourteen
 phone widths, and the four host screens at three TV sizes, for spacing, size and overflow: 180 pictures.
 
