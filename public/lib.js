@@ -10,8 +10,8 @@ export function readWithIdle(reader, ms) {
     timer = setTimeout(() => {
       const error = new Error('Reader idle')
       error.name = 'IdleReaderError'
-      void reader.cancel().catch(() => {})
       reject(error)
+      void reader.cancel().catch(() => {})
     }, ms)
   })
   return Promise.race([reader.read(), idle]).finally(() => clearTimeout(timer))

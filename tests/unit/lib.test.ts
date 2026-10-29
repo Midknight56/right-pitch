@@ -13,6 +13,13 @@ describe('public helpers', () => {
     await expect(readWithIdle(reader, 50)).rejects.toMatchObject({ name: 'IdleReaderError' })
     expect(cancelled).toBe(true)
   })
+  it('rejects an idle real stream reader before cancellation ends its pending read', async () => {
+    const stream = new ReadableStream<string>({
+      start() {},
+    })
+
+    await expect(readWithIdle(stream.getReader(), 50)).rejects.toMatchObject({ name: 'IdleReaderError' })
+  })
   it('reads chunks that arrive within the idle limit', async () => {
     const chunks = ['one', 'two', 'three']
     const reader = {
