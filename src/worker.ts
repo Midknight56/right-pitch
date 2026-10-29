@@ -49,6 +49,13 @@ export default {
     if (path.startsWith('/api/quiz/')) return handleQuiz(request, env)
     if (path === '/api/report') return handleReport(request, env)
     if (path.startsWith('/api/rooms')) return handleRooms(request, env)
+    // Room codes are case insensitive; canonical paths use upper case.
+    const roomPath = path.match(/^\/(h|j)\/([A-Za-z]{4})\/?$/)
+    if (roomPath && roomPath[2] !== roomPath[2].toUpperCase()) {
+      const canonical = new URL(url)
+      canonical.pathname = `/${roomPath[1]}/${roomPath[2].toUpperCase()}`
+      return Response.redirect(canonical.toString(), 301)
+    }
     // The host screen, the phone and the printable sheet are pages of the one app.
     if (/^\/(h|j)\/[A-Z]{4}\/?$/.test(path) || /^\/q\/[A-Za-z0-9_-]{6,48}\/print\/?$/.test(path)) {
       return env.ASSETS.fetch(new Request(new URL('/', url), request))

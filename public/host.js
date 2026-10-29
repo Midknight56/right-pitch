@@ -1,5 +1,5 @@
 // The host screen: the telly in the pub. QR code and lobby, then each question, the reveal and the scores.
-import { KIND_WORDS, countdown, esc, localEnd, optionLetter, store } from './lib.js'
+import { KIND_WORDS, countdown, esc, localEnd, optionLetter, roomGone, store } from './lib.js'
 import { qrSvg } from './qr.js'
 import { roomSocket } from './socket.js'
 import { lensBars } from './builder.js'
@@ -8,6 +8,13 @@ import { voice } from './voice.js'
 const TILES = ['bg-a', 'bg-b', 'bg-c', 'bg-d']
 
 export async function hostScreen(app, code) {
+  const info = await fetch(`/api/rooms/${encodeURIComponent(code)}`).then((r) => (roomGone(r.status) ? { exists: false } : r.json())).catch(() => ({ exists: true }))
+  if (!info.exists) {
+    app.innerHTML = `<div class="top"><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">?</span>Right Pitch</a></div>
+      <div class="phone"><div class="phone-card"><p class="phone-code">${esc(code)}</p><p class="phone-big">No room with that code.</p>
+      <a class="btn btn-wide" href="/">Make your own quiz</a></div></div>`
+    return
+  }
   const saved = store.get(`rp-host-${code}`)
   const joinUrl = `${location.origin}/j/${code}`
   if (!saved?.token) {

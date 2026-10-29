@@ -16,3 +16,4 @@ export function fieldLabel(field: string): string
 export function meterSpot(value: number): number
 export function newPid(random?: () => number): string
 export const store: { get(key: string): any; set(key: string, value: unknown): void }
+export function roomGone(status: number): boolean

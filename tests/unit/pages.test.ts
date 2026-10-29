@@ -68,3 +68,11 @@ describe('builder setup checks', () => {
     expect(check(setup("St. John's, Newfoundland"))).toBe('')
   })
 })
+
+describe('host room status', () => {
+  it('treats a missing room as gone', async () => {
+    const { roomGone } = await import('../../public/lib.js')
+    expect(roomGone(404)).toBe(true)
+    expect(roomGone(200)).toBe(false)
+  })
+})

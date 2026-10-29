@@ -147,3 +147,6 @@ export const store = {
     try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* forgets */ }
   },
 }
+export function roomGone(status) {
+  return status === 404
+}
